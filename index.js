@@ -1,8 +1,7 @@
-const { error } = require("console");
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
-
 require("dotenv").config();
+
 const app = express();
 const port = 3000;
 const uri = process.env.MONGO_URI;
@@ -13,9 +12,24 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
+  tls: true,
+  tlsInsecure: true,
 });
 
-const database = client.db("nuts-ecommerce-backend");
+
+let database;
+
+async function connectToDatabase() {
+  try {
+    await client.connect();
+    database = client.db("nuts-ecommerce-backend");
+    console.log("Connected to MongoDB");
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+  }
+}
+
+connectToDatabase();
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -29,27 +43,17 @@ app.use((req, res, next) => {
 
 app.get("/items", async (req, res) => {
   try {
-    await client.connect();
     const collection = database.collection("products");
-
     const items = await collection.find({}).toArray();
     res.json(items);
   } catch (error) {
     console.error("Error fetching items:", error);
     res.status(500).json({ error: "Internal server error" });
-  } finally {
-    await client.close();
   }
 });
 
 app.post("/items/add", async (req, res) => {
   try {
-    if (!database) {
-      return res
-        .status(500)
-        .json({ error: "Database connection not established" });
-    }
-
     const collection = database.collection("products");
     const newItem = req.body;
     const result = await collection.insertOne(newItem);
